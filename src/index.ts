@@ -1,213 +1,232 @@
 import express, { Request, Response } from "express";
-import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
-import { LinkConfig, ClickRecord } from "./types";
-
-dotenv.config();
+import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, "..", "data");
-const CLICKS_FILE = path.join(DATA_DIR, "clicks.json");
-const LINKS_FILE = path.join(__dirname, "..", "links.json");
-const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
-// Confia no proxy reverso do Render para pegar HTTPS correto
-app.set("trust proxy", 1);
+// Inicialização do Supabase para o Data Lake
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase =
+  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-// Serve arquivos estáticos da pasta public (ex: /images/grafana.png)
-app.use(express.static(PUBLIC_DIR));
+// Servir arquivos estáticos (imagens em public/)
+app.use(express.static(path.join(__dirname, "../public")));
 
-// Garante que a pasta de dados exista
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Carregar links configurados
+const linksPath = path.join(__dirname, "../links.json");
+let links: Record<
+  string,
+  { targetUrl: string; title: string; description: string; imageUrl?: string }
+> = {};
+
+if (fs.existsSync(linksPath)) {
+  links = JSON.parse(fs.readFileSync(linksPath, "utf-8"));
 }
-if (!fs.existsSync(CLICKS_FILE)) {
-  fs.writeFileSync(CLICKS_FILE, JSON.stringify([], null, 2), "utf-8");
+
+// Arquivo local para stats rápidos em memória/disco
+const dataDir = path.join(__dirname, "../data");
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+const statsFile = path.join(dataDir, "clicks.json");
+
+interface ClickEvent {
+  id: string;
+  slug: string;
+  targetUrl: string;
+  timestamp: string;
+  ip: string;
+  referrer: string;
+  utmSource: string;
+  userAgent: string;
+  isBot: boolean;
 }
 
-// Carrega os links cadastrados
-function loadLinks(): Record<string, LinkConfig> {
+interface StatsData {
+  totalClicksHumanos: number;
+  totalCrawlers: number;
+  detalhesPorLink: Record<
+    string,
+    { total: number; sources: Record<string, number> }
+  >;
+  ultimosCliques: ClickEvent[];
+}
+
+let stats: StatsData = {
+  totalClicksHumanos: 0,
+  totalCrawlers: 0,
+  detalhesPorLink: {},
+  ultimosCliques: [],
+};
+
+if (fs.existsSync(statsFile)) {
   try {
-    const raw = fs.readFileSync(LINKS_FILE, "utf-8");
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error("Erro ao ler links.json:", error);
-    return {};
+    stats = JSON.parse(fs.readFileSync(statsFile, "utf-8"));
+  } catch (e) {
+    console.error("Erro ao ler clicks.json local:", e);
   }
 }
 
-// Salva registro de clique para métricas
-function logClick(record: ClickRecord): void {
+function salvarStatsLocal() {
   try {
-    const data = JSON.parse(fs.readFileSync(CLICKS_FILE, "utf-8"));
-    data.push(record);
-    fs.writeFileSync(CLICKS_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (error) {
-    console.error("Erro ao registrar clique:", error);
+    fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2));
+  } catch (e) {
+    console.error("Erro ao salvar stats local:", e);
   }
 }
 
-// Identifica se a requisição veio de um crawler de rede social
-function isSocialBot(userAgent: string): boolean {
-  const botsPattern =
-    /linkedinbot|facebookexternalhit|facebot|twitterbot|slackbot|whatsapp|telegrambot|discordbot|embedly|quora link preview|pinterest/i;
-  return botsPattern.test(userAgent);
-}
-
-// Converte caminho local de imagem (/images/...) em URL pública completa para o LinkedIn
-function resolveImageUrl(
-  imageUrl: string | undefined,
-  baseUrl: string,
-): string | null {
-  if (!imageUrl) return null;
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-    return imageUrl;
-  }
-  const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  return `${baseUrl}${cleanPath}`;
-}
-
-// Gera o HTML com Open Graph para crawlers
-function generateOgHtml(
-  link: LinkConfig,
-  currentUrl: string,
-  baseUrl: string,
-): string {
-  const absoluteImageUrl = resolveImageUrl(link.imageUrl, baseUrl);
-  const imageTags = absoluteImageUrl
-    ? `
-  <meta property="og:image" content="${absoluteImageUrl}">
-  <meta property="og:image:alt" content="${link.title}">
-  <meta name="twitter:image" content="${absoluteImageUrl}">`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <title>${link.title}</title>
-  <meta name="description" content="${link.description}">
-  
-  <!-- Open Graph / LinkedIn -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="${currentUrl}">
-  <meta property="og:title" content="${link.title}">
-  <meta property="og:description" content="${link.description}">
-  ${imageTags}
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="${currentUrl}">
-  <meta name="twitter:title" content="${link.title}">
-  <meta name="twitter:description" content="${link.description}">
-
-  <!-- Redirecionamento reserva -->
-  <meta http-equiv="refresh" content="0;url=${link.targetUrl}">
-</head>
-<body>
-  <p>Redirecionando para <a href="${link.targetUrl}">${link.title}</a>...</p>
-</body>
-</html>`;
-}
-
-// Rota raiz: status simples
-app.get("/", (_req: Request, res: Response) => {
-  res.type("text/plain").send("Smart Redirector está online.");
-});
-
-// Rota de métricas
-app.get("/admin/stats", (_req: Request, res: Response) => {
-  try {
-    const clicks: ClickRecord[] = JSON.parse(
-      fs.readFileSync(CLICKS_FILE, "utf-8"),
+// Grava o evento bruto no Data Lake (Supabase Storage)
+async function salvarNoDataLake(evento: ClickEvent) {
+  if (!supabase) {
+    console.log(
+      "[DataLake] Supabase não configurado nas variáveis de ambiente.",
     );
-    const summary: Record<
-      string,
-      { total: number; sources: Record<string, number> }
-    > = {};
-
-    clicks.forEach((c) => {
-      if (c.isBot) return;
-      if (!summary[c.slug]) {
-        summary[c.slug] = { total: 0, sources: {} };
-      }
-      summary[c.slug].total += 1;
-
-      const source =
-        c.utmSource ||
-        (c.referrer ? new URL(c.referrer).hostname : "direto/desconhecido");
-      summary[c.slug].sources[source] =
-        (summary[c.slug].sources[source] || 0) + 1;
-    });
-
-    res.json({
-      totalClicksHumanos: clicks.filter((c) => !c.isBot).length,
-      totalCrawlers: clicks.filter((c) => c.isBot).length,
-      detalhesPorLink: summary,
-      ultimosCliques: clicks.slice(-20).reverse(),
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Erro ao compilar estatísticas" });
+    return;
   }
+
+  try {
+    const data = new Date(evento.timestamp);
+    const ano = data.getUTCFullYear();
+    const mes = String(data.getUTCMonth() + 1).padStart(2, "0");
+    const dia = String(data.getUTCDate()).padStart(2, "0");
+
+    // Particionamento clássico de Data Lake
+    const filePath = `raw/ano=${ano}/mes=${mes}/dia=${dia}/clique_${evento.id}.json`;
+    const jsonString = JSON.stringify(evento, null, 2);
+
+    const { error } = await supabase.storage
+      .from("datalake-cliques")
+      .upload(filePath, jsonString, {
+        contentType: "application/json",
+        upsert: true,
+      });
+
+    if (error) {
+      console.error(
+        `[DataLake Error] Falha ao gravar ${filePath}:`,
+        error.message,
+      );
+    } else {
+      console.log(`[DataLake] Evento salvo com sucesso em: ${filePath}`);
+    }
+  } catch (err) {
+    console.error("[DataLake Error]:", err);
+  }
+}
+
+function isCrawler(userAgent: string = ""): boolean {
+  const bots = [
+    "linkedinbot",
+    "facebookexternalhit",
+    "twitterbot",
+    "whatsapp",
+    "telegrambot",
+    "slackbot",
+    "skypeuripreview",
+    "discordbot",
+    "googlebot",
+    "bingbot",
+    "applebot",
+  ];
+  const ua = userAgent.toLowerCase();
+  return bots.some((bot) => ua.includes(bot));
+}
+
+// Rota raiz
+app.get("/", (_req: Request, res: Response) => {
+  res.send("Smart Redirector está online.");
 });
 
-// Rota de redirecionamento dinâmico
+// Endpoint de métricas rápidas
+app.get("/admin/stats", (_req: Request, res: Response) => {
+  res.json(stats);
+});
+
+// Redirecionador por slug
 app.get("/:slug", (req: Request, res: Response) => {
   const { slug } = req.params;
-  const links = loadLinks();
-  const link = links[slug];
+  const linkConfig = links[slug];
 
-  if (!link) {
-    return res
-      .status(404)
-      .type("text/plain")
-      .send(`Link "${slug}" não encontrado.`);
+  if (!linkConfig) {
+    res.status(404).send("Link não encontrado.");
+    return;
   }
 
   const userAgent = req.headers["user-agent"] || "";
-  const isBot = isSocialBot(userAgent);
-  const referrer = (req.headers["referer"] ||
-    req.headers["referrer"] ||
-    "") as string;
-  const utmSource = (req.query.utm_source as string) || undefined;
-  const utmMedium = (req.query.utm_medium as string) || undefined;
-  const utmCampaign = (req.query.utm_campaign as string) || undefined;
+  const isBot = isCrawler(userAgent);
+  const utmSource =
+    (req.query.utm_source as string) || (req.query.src as string) || "direto";
 
-  const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-  const baseUrl = `${protocol}://${req.get("host")}`;
-  const currentUrl = `${baseUrl}${req.originalUrl}`;
-
-  // Grava métrica
-  logClick({
+  const evento: ClickEvent = {
     id: Math.random().toString(36).substring(2, 9),
     slug,
-    targetUrl: link.targetUrl,
+    targetUrl: linkConfig.targetUrl,
     timestamp: new Date().toISOString(),
     ip:
       (req.headers["x-forwarded-for"] as string) ||
       req.socket.remoteAddress ||
       "",
-    referrer,
+    referrer: (req.headers["referer"] as string) || "",
     utmSource,
-    utmMedium,
-    utmCampaign,
     userAgent,
     isBot,
-  });
+  };
 
-  // Robôs de redes sociais recebem as tags Open Graph
+  // Se for crawler de rede social
   if (isBot) {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.send(generateOgHtml(link, currentUrl, baseUrl));
+    stats.totalCrawlers++;
+    salvarStatsLocal();
+
+    const host = req.headers["host"];
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    let fullImageUrl = linkConfig.imageUrl || "";
+    if (fullImageUrl && fullImageUrl.startsWith("/")) {
+      fullImageUrl = `${protocol}://${host}${fullImageUrl}`;
+    }
+
+    res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${linkConfig.title}</title>
+  <meta property="og:title" content="${linkConfig.title}" />
+  <meta property="og:description" content="${linkConfig.description}" />
+  <meta property="og:image" content="${fullImageUrl}" />
+  <meta property="og:url" content="${protocol}://${host}/${slug}" />
+  <meta property="og:type" content="website" />
+</head>
+<body>
+  <h1>${linkConfig.title}</h1>
+  <p>${linkConfig.description}</p>
+</body>
+</html>`);
+    return;
   }
 
-  // Visitantes reais são redirecionados direto
-  return res.redirect(302, link.targetUrl);
+  // Se for humano
+  stats.totalClicksHumanos++;
+  if (!stats.detalhesPorLink[slug]) {
+    stats.detalhesPorLink[slug] = { total: 0, sources: {} };
+  }
+  stats.detalhesPorLink[slug].total++;
+  stats.detalhesPorLink[slug].sources[utmSource] =
+    (stats.detalhesPorLink[slug].sources[utmSource] || 0) + 1;
+  stats.ultimosCliques.unshift(evento);
+  if (stats.ultimosCliques.length > 50) {
+    stats.ultimosCliques.pop();
+  }
+  salvarStatsLocal();
+
+  // Envia assincronamente para o Data Lake no Supabase (não trava o redirecionamento!)
+  salvarNoDataLake(evento);
+
+  // Redireciona o visitante
+  res.redirect(302, linkConfig.targetUrl);
 });
 
 app.listen(PORT, () => {
-  console.log(`[Smart Redirector] Rodando em http://localhost:${PORT}`);
-  console.log(`[Estatísticas] Acesse http://localhost:${PORT}/admin/stats`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });

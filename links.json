@@ -1,0 +1,86 @@
+{
+  "grafana-monitoramento-sites": {
+    "targetUrl": "https://olivekingfisher854.grafana.net/public-dashboards/bde1b82c65584fffad9738d750afc53c",
+    "title": "Dashboard Operacional - Grafana",
+    "description": "Visualiza\u00e7\u00e3o de m\u00e9tricas em tempo real, telemetria e monitoramento de performance.",
+    "imageUrl": "/images/grafana.png"
+  },
+  "excel-relatorio1": {
+    "targetUrl": "https://senacspedu-my.sharepoint.com/:x:/g/personal/caroline_arocha5_senacsp_edu_br/IQD_vOKWRavxTrN2EDy_m-WeAVJrfiSkFM4WAcUav1yIWYA?rtime=L3Cx88pI30g",
+    "title": "Planilha de Indicadores Estrat\u00e9gicos",
+    "description": "Consolida\u00e7\u00e3o de dados operacionais e relat\u00f3rios gerenciais.",
+    "imageUrl": "/images/excel.png"
+  },
+  "curriculo-fs": {
+    "targetUrl": "https://drive.google.com/file/d/13TWgFEfWrVg8dWDglY2cAlkxKSvgA5XE/view?usp=drive_link",
+    "title": "Meu currículo",
+    "description": "Desenvolvedora FullStack",
+    "imageUrl": "/images/cv-1.png"
+  },
+  "curriculo-fs-en": {
+    "targetUrl": "https://drive.google.com/file/d/18blcYbCBpwUpAW0KV0YA7keilzggnE8V/view?usp=sharing",
+    "title": "My curriculum",
+    "description": "FullStack developer",
+    "imageUrl": "/images/cv-2.png"
+  },
+  "curriculo-dados": {
+    "targetUrl": "https://drive.google.com/file/d/1OZw0KTYLl-wMisi0X2ymEX1JzxssJxFI/view?usp=sharing",
+    "title": "Meu currículo",
+    "description": "Engenheira de Dados",
+    "imageUrl": "/images/cv-3.png"
+  },
+  "curriculo-data": {
+    "targetUrl": "https://drive.google.com/file/d/18blcYbCBpwUpAW0KV0YA7keilzggnE8V/view?usp=sharing",
+    "title": "My curriculum",
+    "description": "Data Engineer",
+    "imageUrl": "/images/cv-4.png"
+  },
+  "garimpatrip": {
+    "targetUrl": "https://garimpatrip.com.br",
+    "title": "GarimpaTrip",
+    "description": "Plataforma agregadora de turismo e viagens.",
+    "imageUrl": "/images/garimpatrip.png"
+  },
+  "sem-papas": {
+    "targetUrl": "https://sem-papas.web.app",
+    "title": "Sem Papas",
+    "description": "Chat em tempo real com login e criação de grupos.",
+    "imageUrl": "/images/sem-papas.png"
+  },
+  "scrumbao": {
+    "targetUrl": "https://scrumbao.vercel.app",
+    "title": "Scrumbão",
+    "description": "Metodologia Scrum de gerenciamento de projetos ágil.",
+    "imageUrl": "/images/scrumbao.png"
+  },
+  "kambao": {
+    "targetUrl": "https://kambao.vercel.app",
+    "title": "Kambão",
+    "description": "Sistema Kanban de gestão de projetos e fluxo de trabalho.",
+    "imageUrl": "/images/kambao.png"
+  },
+  "portfolio": {
+    "targetUrl": "https://caroline-suhvary.github.io/meu-portfolio/",
+    "title": "Meu portfolio",
+    "description": "Portfolio Online",
+    "imageUrl": "/images/portfolio.png"
+  },
+  "credly": {
+    "targetUrl": "https://www.credly.com/users/carolinearaujor/badges/credly",
+    "title": "Credly",
+    "description": "Todos os badges em AWS, GCP e Azure.",
+    "imageUrl": "/images/badge.png"
+  },
+  "linkedin": {
+    "targetUrl": "https://linkedin.com/in/carolinearaujor",
+    "title": "Meu Linkedin",
+    "description": "Meu perfil no linkedin.",
+    "imageUrl": "/images/linkedin.png"
+  },
+  "python-streamlit-report1": {
+    "targetUrl": "https://github.com/caroline-suhvary/Analise_de_Dados_com_Python",
+    "title": "Dashboard no Streamlit",
+    "description": "Link do Github onde construí minha análise de dados com python e publiquei dashboard no Streamlit.",
+    "imageUrl": "/images/streamlit.png"
+  }
+}

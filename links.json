@@ -82,5 +82,23 @@
     "title": "Dashboard no Streamlit",
     "description": "Link do Github onde construí minha análise de dados com python e publiquei dashboard no Streamlit.",
     "imageUrl": "/images/streamlit.png"
+  },
+  "github": {
+    "targetUrl": "https://github.com/caroline-suhvary?tab=repositories",
+    "title": "Meu Github",
+    "description": "Link do Github contendo quase todos os meus projetos.",
+    "imageUrl": "/images/GitHub-logo-500x289.jpg"
+  },
+  "whatsapp": {
+    "targetUrl": "https://wa.me/5511953370121",
+    "title": "Meu WhatsApp",
+    "description": "Link do meu número de whatsapp (vivo).",
+    "imageUrl": "/images/whatsapp-logo.png"
+  },
+  "whatsapp2": {
+    "targetUrl": "https://wa.me/5511953370121?text=Ol%C3%A1%2C%20Caroline!%20Vi%20seu%20portf%C3%B3lio%20e%20quero%20conversar.",
+    "title": "Meu WhatsApp",
+    "description": "Link do meu número de whatsapp (vivo).",
+    "imageUrl": "/images/whatsapp-logo.png"
   }
 }
